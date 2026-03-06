@@ -269,48 +269,11 @@ tr:hover td{background:rgba(0,255,163,0.025);}
   .main{margin-left:0;}.sb{transform:translateX(-100%);}.sb.open{transform:translateX(0);}.ham{display:flex;}.cnt{padding:14px 14px;}.topbar{padding:12px 14px;}
 }
 </style>
-<!-- Firebase CDN compat (fonctionne sur tous navigateurs) -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyBVTMKxMtcTiboPN3Ie0-q_rhckhTxB_zQ",
-  authDomain: "volta-releve.firebaseapp.com",
-  projectId: "volta-releve",
-  storageBucket: "volta-releve.firebasestorage.app",
-  messagingSenderId: "1071544605084",
-  appId: "1:1071544605084:web:f9e3fe3193a079df5dd059"
-};
-
-try {
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-
-  window.DB = {
-    async getUsers(){const s=await db.collection('users').get();return s.docs.map(d=>({...d.data(),id:d.id}));},
-    async setUser(u){await db.collection('users').doc(u.id).set(u);},
-    async deleteUser(id){await db.collection('users').doc(id).delete();},
-    async getPending(){const s=await db.collection('pending').get();return s.docs.map(d=>({...d.data(),id:d.id}));},
-    async setPending(u){await db.collection('pending').doc(u.id).set(u);},
-    async deletePending(id){await db.collection('pending').doc(id).delete();},
-    async getResidents(){const s=await db.collection('residents').get();return s.docs.map(d=>({...d.data(),id:parseInt(d.id)}));},
-    async setResident(r){await db.collection('residents').doc(String(r.id)).set(r);},
-    async deleteResident(id){await db.collection('residents').doc(String(id)).delete();},
-    async getAlerts(){const s=await db.collection('alerts').get();return s.docs.map(d=>({...d.data(),id:d.id})).sort((a,b)=>b.ts-a.ts).slice(0,20);},
-    async addAlert(a){await db.collection('alerts').add({...a,ts:Date.now()});},
-    async getSettings(){const d=await db.collection('settings').doc('tariff').get();return d.exists?d.data():null;},
-    async saveSettings(s){await db.collection('settings').doc('tariff').set(s);},
-    async getSource(){const d=await db.collection('settings').doc('source').get();return d.exists?d.data():{prev:0,curr:0};},
-    async saveSource(s){await db.collection('settings').doc('source').set(s);}
-  };
-
-  window.FB_READY = true;
-  window.dispatchEvent(new Event('fb-ready'));
-} catch(e) {
-  console.warn('Firebase init error:', e);
-  window.FB_READY = true; // continuer sans Firebase
-  window.dispatchEvent(new Event('fb-ready'));
-}
+// Firebase désactivé temporairement — données en localStorage
+window.DB = null;
+window.FB_READY = true;
+window.dispatchEvent(new Event('fb-ready'));
 </script>
 </head>
 <body>
@@ -534,51 +497,37 @@ let pending=[];
 let alrts=[];
 
 // ── FIREBASE SAVE ──
-async function su(){for(const u of USERS){if(window.DB)await window.DB.setUser(u);}};
-async function sp(){};  // pending géré directement
-async function sa(){};  // alertes gérées directement
+async function su(){localStorage.setItem('v_users',JSON.stringify(USERS));}
+async function sp(){localStorage.setItem('v_pending',JSON.stringify(pending));}
+async function sa(){localStorage.setItem('v_alerts',JSON.stringify(alrts));}
 
 async function addAl(t,s,tp='info'){
   const al={t,s,tp,time:new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})};
   alrts.unshift(al);if(alrts.length>20)alrts.pop();
-  if(window.DB) await window.DB.addAlert(al);
+  localStorage.setItem('v_alerts',JSON.stringify(alrts));
   updNdot();
 }
 function updNdot(){const d=document.getElementById('ndot');if(d)d.style.display=alrts.length?'block':'none';}
 
 // ── CHARGER DONNÉES FIREBASE ──
 async function loadFromDB(){
-  if(!window.DB) return;
+  // Charger depuis localStorage
   try {
-    // Users
-    const dbUsers = await window.DB.getUsers();
-    if(dbUsers.length){
-      USERS = dbUsers;
-    } else {
-      // Premier lancement : créer admin par défaut
-      const admin = {id:'admin',pass:'admin123',role:'admin',name:'Lucien Coulibaly',initials:'LC'};
-      USERS = [admin];
-      await window.DB.setUser(admin);
-    }
-    // Toujours s'assurer qu'il y a un admin
-    if(!USERS.find(u=>u.role==='admin')){
-      const admin = {id:'admin',pass:'admin123',role:'admin',name:'Lucien Coulibaly',initials:'LC'};
-      USERS.push(admin);
-    }
-    // Pending
-    pending = await window.DB.getPending();
-    // Residents
-    const dbRes = await window.DB.getResidents();
-    residents = dbRes;
-    // Settings
-    const dbS = await window.DB.getSettings();
-    if(dbS) S = dbS;
-    // Source
-    srcIdx = await window.DB.getSource();
-    // Alerts
-    alrts = await window.DB.getAlerts();
+    const u = localStorage.getItem('v_users');
+    if(u) USERS = JSON.parse(u);
+    if(!USERS.length) USERS = [{id:'admin',pass:'admin123',role:'admin',name:'Lucien Coulibaly',initials:'LC'}];
+    const p = localStorage.getItem('v_pending');
+    if(p) pending = JSON.parse(p);
+    const r = localStorage.getItem('v_residents');
+    if(r) residents = JSON.parse(r);
+    const s = localStorage.getItem('v_settings');
+    if(s) S = JSON.parse(s);
+    const src = localStorage.getItem('v_source');
+    if(src) srcIdx = JSON.parse(src);
+    const al = localStorage.getItem('v_alerts');
+    if(al) alrts = JSON.parse(al);
     updNdot();
-  } catch(e){ console.warn('Firebase load error:', e); }
+  } catch(e){ console.warn('Load error:', e); }
 }
 
 // ── ENGINE ──
@@ -644,21 +593,21 @@ function doRegister(){
 function approveU(id){
   const u=pending.find(x=>x.id===id);if(!u)return;
   USERS.push(u);
-  if(window.DB) await window.DB.setUser(u);
+  localStorage.setItem('v_users',JSON.stringify(USERS));
   const pts=u.name.split(' '),nm=pts[0]+(pts[1]?' '+pts[1][0]+'.':'');
   const nid=residents.length?Math.max(...residents.map(r=>r.id))+1:1;
   const newRes={id:nid,fullName:u.name,name:nm,apt:u.apt,meter:u.meter,color:COLS[residents.length%COLS.length],initials:u.initials,prevIdx:0,currIdx:0,status:'pending'};
   residents.push(newRes);
-  if(window.DB) await window.DB.setResident(newRes);
+  localStorage.setItem('v_residents',JSON.stringify(residents));
   pending=pending.filter(x=>x.id!==id);
-  if(window.DB) await window.DB.deletePending(id);
+  localStorage.setItem('v_pending',JSON.stringify(pending));
   addAl('Inscription approuvée',u.name+' peut se connecter','success');
   renderPending();renderHome();renderRes();toast(`${u.name} approuvé ✓`);
 }
 async function rejectU(id){
   const u=pending.find(x=>x.id===id);
   pending=pending.filter(x=>x.id!==id);
-  if(window.DB) await window.DB.deletePending(id);
+  localStorage.setItem('v_pending',JSON.stringify(pending));
   addAl('Inscription refusée',(u?.name||id)+' a été refusé','info');
   renderPending();toast('Demande refusée','❌');
 }
@@ -814,14 +763,14 @@ async function removeR(id){
   if(residents.length<=1){toast('Au moins 1 résident requis','⚠️');return;}
   const r=residents.find(x=>x.id===id);
   residents=residents.filter(x=>x.id!==id);
-  if(window.DB) await window.DB.deleteResident(id);
+  localStorage.setItem('v_residents',JSON.stringify(residents));
   renderRes();renderHome();toast(`${r?.name} supprimé`,'🗑️');
 }
 async function applyS(){
   S.t1=parseFloat(document.getElementById('st1').value)||130;
   S.t2=parseFloat(document.getElementById('st2').value)||764;
   S.quota=parseFloat(document.getElementById('sq').value)||50;
-  if(window.DB) await window.DB.saveSettings(S);
+  localStorage.setItem('v_settings',JSON.stringify(S));
   renderHome();renderValid();renderRes();toast('Paramètres appliqués ✓');
 }
 
@@ -837,7 +786,7 @@ async function saveSource(){
   const n=parseFloat(document.getElementById('srcnew').value),p=parseFloat(document.getElementById('srcprev').value);
   if(!n){toast('Veuillez saisir un index','⚠️');return;}
   if(p)srcIdx.prev=p;srcIdx.curr=n;
-  if(window.DB) await window.DB.saveSource(srcIdx);
+  localStorage.setItem('v_source',JSON.stringify(srcIdx));
   addAl('Index source mis à jour','Nouvel index : '+n.toLocaleString()+' kWh','success');renderSrc();renderHome();toast('Index source mis à jour ✓');
 }
 
@@ -896,14 +845,14 @@ function renderPending(){
 async function saveProfile(){
   const nm=document.getElementById('pmnm').value.trim();if(!nm){toast('Nom requis','⚠️');return;}
   const u=USERS.find(x=>x.id===currentUser.id);
-  if(u){u.name=nm;u.initials=nm.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);if(window.DB)await window.DB.setUser(u);}
+  if(u){u.name=nm;u.initials=nm.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);localStorage.setItem('v_users',JSON.stringify(USERS));}
   currentUser.name=nm;document.getElementById('pnm').textContent=nm;toast('Profil mis à jour ✓');
 }
 async function changePW(){
   const old=document.getElementById('pmold').value,nw=document.getElementById('pmnew').value,cf=document.getElementById('pmconf').value;
   if(!old||!nw){toast('Tous les champs requis','⚠️');return;}if(nw!==cf){toast('Mots de passe différents','⚠️');return;}if(nw.length<6){toast('Minimum 6 caractères','⚠️');return;}
   const u=USERS.find(x=>x.id===currentUser.id);if(!u||u.pass!==old){toast('Mot de passe actuel incorrect','❌');return;}
-  u.pass=nw;if(window.DB)await window.DB.setUser(u);localStorage.setItem('v_sess',JSON.stringify({id:u.id,pass:nw}));toast('Mot de passe mis à jour 🔐');
+  u.pass=nw;localStorage.setItem('v_users',JSON.stringify(USERS));localStorage.setItem('v_sess',JSON.stringify({id:u.id,pass:nw}));toast('Mot de passe mis à jour 🔐');
   ['pmold','pmnew','pmconf'].forEach(i=>document.getElementById(i).value='');
 }
 
