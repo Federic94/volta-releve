@@ -280,21 +280,9 @@ window.dispatchEvent(new Event('fb-ready'));
 
 <!-- ════ AUTH ════ -->
 
-<div id="splash" style="position:fixed;inset:0;z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#080d1a;">
-  <div style="position:relative;margin-bottom:24px;">
-    <div style="width:80px;height:80px;border-radius:22px;background:linear-gradient(135deg,#00ffa3,#00d4ff);display:flex;align-items:center;justify-content:center;font-size:38px;box-shadow:0 0 40px rgba(0,255,163,0.5);animation:gw 2s ease-in-out infinite;">⚡</div>
-  </div>
-  <div style="font-size:32px;font-weight:900;background:linear-gradient(135deg,#00ffa3,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-1px;">VOLTA</div>
-  <div style="font-size:11px;color:#3a5570;margin-top:6px;letter-spacing:3px;text-transform:uppercase;">Système de relevé électrique</div>
-  <div style="margin-top:32px;display:flex;gap:8px;">
-    <div style="width:8px;height:8px;border-radius:50%;background:#00ffa3;animation:dot 1.4s ease-in-out infinite;"></div>
-    <div style="width:8px;height:8px;border-radius:50%;background:#00ffa3;animation:dot 1.4s ease-in-out .2s infinite;"></div>
-    <div style="width:8px;height:8px;border-radius:50%;background:#00ffa3;animation:dot 1.4s ease-in-out .4s infinite;"></div>
-  </div>
-  <style>@keyframes dot{0%,80%,100%{opacity:.2;transform:scale(.8);}40%{opacity:1;transform:scale(1);}}</style>
-</div>
 
-<div id="auth" style="display:none;">
+
+<div id="auth">
   <div class="abox">
     <div style="display:flex;align-items:center;gap:13px;margin-bottom:28px;">
       <div class="abolt">⚡</div>
@@ -907,80 +895,30 @@ function swtab(b,id){document.querySelectorAll('.tbtn').forEach(x=>x.classList.r
 let ttimer;
 function toast(msg,ico='✅'){const el=document.getElementById('toast');el.innerHTML=`<span>${ico}</span>${msg}`;el.classList.add('show');clearTimeout(ttimer);ttimer=setTimeout(()=>el.classList.remove('show'),3000);}
 
-// ── LOADING SCREEN ──
-function showLoader(msg='Chargement...'){
-  document.getElementById('auth').innerHTML=`
-    <div style="text-align:center;padding:40px;">
-      <div style="font-size:44px;margin-bottom:16px;animation:gw 2s ease-in-out infinite;">⚡</div>
-      <div style="font-size:22px;font-weight:900;background:linear-gradient(135deg,#00ffa3,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;"">VOLTA</div>
-      <div style="font-size:13px;color:var(--txt3);margin-top:10px;">${msg}</div>
-    </div>`;
-}
 
-// ── INIT ──
-async function init(){
-  document.getElementById('tdate').textContent=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
-  document.getElementById('ridate').valueAsDate=new Date();
-  document.getElementById('srcdate').valueAsDate=new Date();
-  const t=localStorage.getItem('v_theme')||'dark';
-  document.documentElement.setAttribute('data-theme',t);
-  if(t==='light'){document.getElementById('pill').classList.remove('on');document.getElementById('thlbl').textContent='☀️ Mode clair';}
-  
-  // Attendre Firebase
-  showLoader('Connexion à la base de données...');
-  await new Promise(res=>{
-    if(window.FB_READY){res();}
-    else{window.addEventListener('fb-ready',res,{once:true});
-    setTimeout(res,5000);} // timeout 5s
-  });
-  
-  // Charger données
-  await loadFromDB();
-  
-  // Restaurer la page auth normale
-  location.reload(); // simple reload si pas de session
-}
 
 // Init différé pour laisser le temps au module Firebase
-window.addEventListener('load', async ()=>{
-  const hideSplash = () => { const s = document.getElementById('splash'); if(s) s.style.display='none'; };
-  
+// Init direct — pas de splash, pas d'attente
+(async function(){
   // Thème
   const t=localStorage.getItem('v_theme')||'dark';
   document.documentElement.setAttribute('data-theme',t);
-  if(t==='light'){document.getElementById('pill')?.classList.remove('on');}
-  
+  try{if(t==='light'){document.getElementById('pill').classList.remove('on');document.getElementById('thlbl').textContent='☀️ Mode clair';}}catch(e){}
+
+  // Charger données
+  try{ await loadFromDB(); }catch(e){}
+
   // Dates
-  document.getElementById('tdate').textContent=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  try{document.getElementById('tdate').textContent=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});}catch(e){}
   try{document.getElementById('ridate').valueAsDate=new Date();}catch(e){}
   try{document.getElementById('srcdate').valueAsDate=new Date();}catch(e){}
 
-  // Attendre Firebase max 8 secondes
-  await new Promise(res=>{
-    if(window.FB_READY){res();}
-    else{
-      window.addEventListener('fb-ready',res,{once:true});
-      setTimeout(res, 8000); // timeout 8s
-    }
-  });
-  
-  // Charger données Firebase (silencieux si échec)
-  try { await loadFromDB(); } catch(e){ console.warn('DB load failed:', e); }
-  
   // Restaurer session
   try{
     const raw=localStorage.getItem('v_sess');
-    if(raw){
-      const{id,pass}=JSON.parse(raw);
-      const u=USERS.find(u=>u.id===id&&u.pass===pass);
-      if(u){hideSplash();applyLogin(u);return;}
-    }
+    if(raw){const{id,pass}=JSON.parse(raw);const u=USERS.find(u=>u.id===id&&u.pass===pass);if(u){applyLogin(u);return;}}
   }catch(e){}
-  
-  // Afficher login
-  hideSplash();
-  document.getElementById('auth').style.display='flex';
-});
+})();
 </script>
 </body>
 </html>
