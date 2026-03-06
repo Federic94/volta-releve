@@ -269,97 +269,48 @@ tr:hover td{background:rgba(0,255,163,0.025);}
   .main{margin-left:0;}.sb{transform:translateX(-100%);}.sb.open{transform:translateX(0);}.ham{display:flex;}.cnt{padding:14px 14px;}.topbar{padding:12px 14px;}
 }
 </style>
-<script type="module">
-// ════════════════════════════════
-// FIREBASE CONFIG
-// ════════════════════════════════
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, collection, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
+<!-- Firebase CDN compat (fonctionne sur tous navigateurs) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
 const firebaseConfig = {
   apiKey: "AIzaSyBVTMKxMtcTiboPN3Ie0-q_rhckhTxB_zQ",
   authDomain: "volta-releve.firebaseapp.com",
   projectId: "volta-releve",
   storageBucket: "volta-releve.firebasestorage.app",
   messagingSenderId: "1071544605084",
-  appId: "1:1071544605084:web:f9e3fe3193a079df5dd059",
-  measurementId: "G-1XZDTYM482"
+  appId: "1:1071544605084:web:f9e3fe3193a079df5dd059"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+try {
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
-// ════════════════════════════════
-// DB HELPERS
-// ════════════════════════════════
-window.DB = {
-  // USERS
-  async getUsers() {
-    const snap = await getDocs(collection(db, 'users'));
-    return snap.docs.map(d => ({id: d.id, ...d.data()}));
-  },
-  async setUser(u) {
-    await setDoc(doc(db, 'users', u.id), u);
-  },
-  async deleteUser(id) {
-    await deleteDoc(doc(db, 'users', id));
-  },
+  window.DB = {
+    async getUsers(){const s=await db.collection('users').get();return s.docs.map(d=>({...d.data(),id:d.id}));},
+    async setUser(u){await db.collection('users').doc(u.id).set(u);},
+    async deleteUser(id){await db.collection('users').doc(id).delete();},
+    async getPending(){const s=await db.collection('pending').get();return s.docs.map(d=>({...d.data(),id:d.id}));},
+    async setPending(u){await db.collection('pending').doc(u.id).set(u);},
+    async deletePending(id){await db.collection('pending').doc(id).delete();},
+    async getResidents(){const s=await db.collection('residents').get();return s.docs.map(d=>({...d.data(),id:parseInt(d.id)}));},
+    async setResident(r){await db.collection('residents').doc(String(r.id)).set(r);},
+    async deleteResident(id){await db.collection('residents').doc(String(id)).delete();},
+    async getAlerts(){const s=await db.collection('alerts').get();return s.docs.map(d=>({...d.data(),id:d.id})).sort((a,b)=>b.ts-a.ts).slice(0,20);},
+    async addAlert(a){await db.collection('alerts').add({...a,ts:Date.now()});},
+    async getSettings(){const d=await db.collection('settings').doc('tariff').get();return d.exists?d.data():null;},
+    async saveSettings(s){await db.collection('settings').doc('tariff').set(s);},
+    async getSource(){const d=await db.collection('settings').doc('source').get();return d.exists?d.data():{prev:0,curr:0};},
+    async saveSource(s){await db.collection('settings').doc('source').set(s);}
+  };
 
-  // PENDING
-  async getPending() {
-    const snap = await getDocs(collection(db, 'pending'));
-    return snap.docs.map(d => ({id: d.id, ...d.data()}));
-  },
-  async setPending(u) {
-    await setDoc(doc(db, 'pending', u.id), u);
-  },
-  async deletePending(id) {
-    await deleteDoc(doc(db, 'pending', id));
-  },
-
-  // RESIDENTS
-  async getResidents() {
-    const snap = await getDocs(collection(db, 'residents'));
-    return snap.docs.map(d => ({...d.data(), id: parseInt(d.id)}));
-  },
-  async setResident(r) {
-    await setDoc(doc(db, 'residents', String(r.id)), r);
-  },
-  async deleteResident(id) {
-    await deleteDoc(doc(db, 'residents', String(id)));
-  },
-
-  // ALERTS
-  async getAlerts() {
-    const snap = await getDocs(collection(db, 'alerts'));
-    return snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => b.ts - a.ts).slice(0,20);
-  },
-  async addAlert(a) {
-    await addDoc(collection(db, 'alerts'), {...a, ts: Date.now()});
-  },
-
-  // SETTINGS
-  async getSettings() {
-    const d = await getDoc(doc(db, 'settings', 'tariff'));
-    return d.exists() ? d.data() : null;
-  },
-  async saveSettings(s) {
-    await setDoc(doc(db, 'settings', 'tariff'), s);
-  },
-
-  // SOURCE
-  async getSource() {
-    const d = await getDoc(doc(db, 'settings', 'source'));
-    return d.exists() ? d.data() : {prev:0, curr:0};
-  },
-  async saveSource(s) {
-    await setDoc(doc(db, 'settings', 'source'), s);
-  }
-};
-
-// Signaler que Firebase est prêt
-window.FB_READY = true;
-window.dispatchEvent(new Event('fb-ready'));
+  window.FB_READY = true;
+  window.dispatchEvent(new Event('fb-ready'));
+} catch(e) {
+  console.warn('Firebase init error:', e);
+  window.FB_READY = true; // continuer sans Firebase
+  window.dispatchEvent(new Event('fb-ready'));
+}
 </script>
 </head>
 <body>
